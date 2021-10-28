@@ -25,6 +25,7 @@ def print_result(res: list) -> None:
 
 def format_to_print(elem: dict, count: int, selected: str) -> dict:
     """
+    Function to format a element before printing it.
 
     :param elem: dictionary containing all information we wish to add to the object.
     :param count: An integer being the number of games played according to the filter.
