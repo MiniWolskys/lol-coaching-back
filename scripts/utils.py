@@ -21,6 +21,7 @@ def print_result(res: list) -> None:
                 print(f"\t{stat['statName']} : {stat['statValue']:.2f}")
         else:
             print(f"No loss for {elem['filter']}")
+        print("----------------------------------------------")
 
 
 def format_to_print(elem: dict, count: int, selected: str) -> dict:
@@ -32,23 +33,28 @@ def format_to_print(elem: dict, count: int, selected: str) -> dict:
     :param selected: String used for filter, such as role or champion.
     :return: A dictionary ready to be printed or used by other functions.
     """
-    new_elem = {'count': count, 'filter': selected, 'stats': {}, 'winStats': {}, 'lossStats': {}}
+    new_elem = {
+        'count': count,
+        'filter': selected,
+        'stats': [],
+        'winStats': [],
+        'lossStats': [],
+        'winCount': 0,
+        'lossCount': 0
+    }
 
     for stat in elem:
         if "win" in stat:
-            if stat is "wins":
+            if stat == "wins":
                 new_elem["winCount"] = elem[stat]
             else:
-                new_elem['winStats']['statName'] = stat
-                new_elem['winStats']['statValue'] = elem[stat]
+                new_elem['winStats'].append({'statName': stat.replace("win", ""), 'statValue': elem[stat]})
         elif "loss" in stat:
-            if stat is "losses":
+            if stat == "losses":
                 new_elem["lossCount"] = elem[stat]
             else:
-                new_elem['lossStats']['statName'] = stat
-                new_elem['lossStats']['statValue'] = elem[stat]
+                new_elem['lossStats'].append({'statName': stat.replace("loss", ""), 'statValue': elem[stat]})
         else:
-            new_elem['stats']['statName'] = stat
-            new_elem['stats']['statValue'] = elem[stat]
+            new_elem['stats'].append({'statName': stat, 'statValue': elem[stat]})
 
-        return new_elem
+    return new_elem

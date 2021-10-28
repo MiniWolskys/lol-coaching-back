@@ -1,6 +1,7 @@
 import requests
 
 from LoLCoaching.config import config
+import utils
 
 base_url_euw = "https://euw1.api.riotgames.com"
 base_url_europe = "https://europe.api.riotgames.com"
@@ -13,7 +14,7 @@ by_puuid = "by-puuid"
 
 # Put the username of the player you want to see the stats.
 # ingame_position is TOP, JUNGLE, MIDDLE, BOTTOM or UTILITY
-username = "medo38"
+username = "azertgab"
 ingame_position = "MIDDLE"
 api_key = config.get_api_key()
 
@@ -159,20 +160,21 @@ lose_average_damage_share = lose_average_damage_share / lose_number if lose_numb
 lose_average_gold_share = lose_average_gold_share / lose_number if lose_number != 0 else 0
 lose_average_gold_efficiency = lose_average_gold_efficiency / lose_number if lose_number != 0 else 0
 
-print(f"On {position_match_count} games as {ingame_position}:")
-print(f"\tDamage share : {average_damage_share:.2f}%")
-print(f"\tGold share : {average_gold_share:.2f}%")
-print(f"\tGold efficiency : {average_gold_efficiency:.2f}%")
-
-print(f"On {win_number} wins :")
-print(f"\tDamage share : {win_average_damage_share:.2f}%")
-print(f"\tGold share : {win_average_gold_share:.2f}%")
-print(f"\tGold efficiency : {win_average_gold_efficiency:.2f}%")
-
-print(f"On {lose_number} losses :")
-print(f"\tDamage share : {lose_average_damage_share:.2f}%")
-print(f"\tGold share : {lose_average_gold_share:.2f}%")
-print(f"\tGold efficiency : {lose_average_gold_efficiency:.2f}%")
+elements_to_print = [utils.format_to_print(
+    {
+        "Damage Share": average_damage_share,
+        "Gold Share": average_gold_share,
+        "Gold Efficiency": average_gold_efficiency,
+        "winDamage Share": win_average_damage_share,
+        "winGold Share": win_average_gold_share,
+        "winGold Efficiency": win_average_gold_efficiency,
+        "lossDamage Share": lose_average_damage_share,
+        "lossGold Share": lose_average_gold_share,
+        "lossGold Efficiency": lose_average_gold_efficiency,
+        "wins": win_number,
+        "losses": lose_number
+    }, position_match_count, ingame_position
+)]
 
 for c in championList:
     champion = championList[c]
@@ -188,19 +190,20 @@ for c in championList:
     champion["lossGoldShare"] = champion["lossGoldShare"] / champion["losses"] if champion["losses"] != 0 else 0
     champion["lossGoldEfficiency"] = champion["lossGoldEfficiency"] / champion["losses"] if champion["losses"] != 0 else 0
 
-    print("----------------------------------------------")
+    elements_to_print.append(utils.format_to_print(
+        {
+            "Damage Share": champion['damageShare'],
+            "Gold Share": champion['goldShare'],
+            "Gold Efficiency": champion['goldEfficiency'],
+            "winDamage Share": champion['winDamageShare'],
+            "winGold Share": champion['winGoldShare'],
+            "winGold Efficiency": champion['winGoldEfficiency'],
+            "lossDamage Share": champion['lossDamageShare'],
+            "lossGold Share": champion['lossGoldShare'],
+            "lossGold Efficiency": champion['lossGoldEfficiency'],
+            "wins": champion['wins'],
+            "losses": champion['losses']
+        }, champion['wins'] + champion['losses'], champion['championName']
+    ))
 
-    print(f"On {champion['wins'] + champion['losses']} as {champion['championName']}:")
-    print(f"\tDamage share : {champion['damageShare']:.2f}%")
-    print(f"\tGold share : {champion['goldShare']:.2f}%")
-    print(f"\tGold efficiency : {champion['goldEfficiency']:.2f}%")
-
-    print(f"On {champion['wins']:} wins :")
-    print(f"\tDamage share : {champion['winDamageShare']:.2f}%")
-    print(f"\tGold share : {champion['winGoldShare']:.2f}%")
-    print(f"\tGold efficiency : {champion['winGoldEfficiency']:.2f}%")
-
-    print(f"On {champion['losses']:} losses :")
-    print(f"\tDamage share : {champion['lossDamageShare']:.2f}%")
-    print(f"\tGold share : {champion['lossGoldShare']:.2f}%")
-    print(f"\tGold efficiency : {champion['lossGoldEfficiency']:.2f}%")
+utils.print_result(elements_to_print)
