@@ -1,4 +1,5 @@
 import requests
+import sys
 import re
 
 from LoLCoaching.config import config
@@ -122,19 +123,34 @@ def create_team_stats(match_data: dict, data_list: dict) -> dict:
     return team_data
 
 
-def main():
-    puuid = get_player_puuid("MiniWolskys")
-    match_list = get_player_last_games(puuid, 30)
-    matchs_stats = []
+def get_set_data(match_list, username, position):
+    match_stats = []
     team_data_list = get_team_data_list()
     specific_data_list = get_specific_data_list()
     at_x_data_list = get_at_x_data_list()
     for match in match_list:
         data = get_match_stats(match)
-        if is_match_valid(data) is True and check_player_position(data, puuid=puuid, position="MIDDLE") is True:
+        if is_match_valid(data) is True and check_player_position(data, name=username, position=position) is True:
             data_at_15 = get_stats_at_minute(match, 15)
             team_data = create_team_stats(data, team_data_list)
-            matchs_stats.append(aggregate_data(data, minutes_data=[data_at_15], team_data=team_data))
+            match_stats.append(aggregate_data(data, minutes_data=[data_at_15], team_data=team_data))
+    return match_stats
+
+
+def get_match_list(username: str, count: int) -> list:
+    puuid = get_player_puuid(username)
+    match_list = get_player_last_games(puuid, count)
+    return match_list
+
+
+def main():
+    if len(sys.argv) < 3:
+        return 0
+    username = sys.argv[1]
+    position = sys.argv[2]
+    match_list = get_match_list(username, 30)
+    match_data = get_set_data(match_list, username, position)
+    print(match_data)
 
 
 main()
