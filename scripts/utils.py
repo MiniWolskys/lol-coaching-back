@@ -8,17 +8,17 @@ def print_result(res: list) -> None:
     for elem in res:
         print(f"On {elem['count']} games as {elem['filter']}:")
         for stat in elem['stats']:
-            print(f"\t{stat['statName']} : {stat['statValue']:.2f}")
+            print(f"\t{stat['statName']} : {stat['statValue']:.2f}{'%' if stat['statType'] == '%' else ''}")
         if elem['winCount'] > 0:
             print(f"On {elem['winCount']} wins:")
             for stat in elem['winStats']:
-                print(f"\t{stat['statName']} : {stat['statValue']:.2f}")
+                print(f"\t{stat['statName']} : {stat['statValue']:.2f}{'%' if stat['statType'] == '%' else ''}")
         else:
             print(f"No win for {elem['filter']}")
         if elem['lossCount'] > 0:
             print(f"On {elem['lossCount']} losses:")
             for stat in elem['lossStats']:
-                print(f"\t{stat['statName']} : {stat['statValue']:.2f}")
+                print(f"\t{stat['statName']} : {stat['statValue']:.2f}{'%' if stat['statType'] == '%' else ''}")
         else:
             print(f"No loss for {elem['filter']}")
         print("----------------------------------------------")
@@ -48,13 +48,16 @@ def format_to_print(elem: dict, count: int, selected: str) -> dict:
             if stat == "wins":
                 new_elem["winCount"] = elem[stat]
             else:
-                new_elem['winStats'].append({'statName': stat.replace("win", ""), 'statValue': elem[stat]})
+                new_elem['winStats'].append({'statName': stat.replace("win", ""), 'statValue': elem[stat],
+                                             'statType': '%' if 'Share' in stat or 'Efficiency' in stat else 'int'})
         elif "loss" in stat:
             if stat == "losses":
                 new_elem["lossCount"] = elem[stat]
             else:
-                new_elem['lossStats'].append({'statName': stat.replace("loss", ""), 'statValue': elem[stat]})
+                new_elem['lossStats'].append({'statName': stat.replace("loss", ""), 'statValue': elem[stat],
+                                              'statType': '%' if 'Share' in stat or 'Efficiency' in stat else 'int'})
         else:
-            new_elem['stats'].append({'statName': stat, 'statValue': elem[stat]})
+            new_elem['stats'].append({'statName': stat, 'statValue': elem[stat],
+                                      'statType': '%' if 'Share' in stat or 'Efficiency' in stat else 'int'})
 
     return new_elem
