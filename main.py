@@ -94,11 +94,11 @@ def get_team_data_list():
 
 
 def get_specific_data_list():
-    return {"goldEfficiency": "goldEfficiency", "deaths": "deaths", "k+a": "k+a"}
+    return {"goldEfficiency": "goldEfficiency"}
 
 
 def get_at_x_data_list():
-    return {"totalGold": "totalGold"}
+    return {"totalGold": "totalGold", "deaths": "deaths", "k+a": "k+a"}
 
 
 def check_position(position: str) -> bool:
@@ -162,14 +162,22 @@ def get_match_stats(match_id: str) -> dict:
 def get_extra_data_at_minute(data: dict, minute: int) -> dict:
     target_frame = 0
     for frame in data["frames"]:
-        if 60000 * (minute + 1) < frame["timestamp"]:
-
+        if 60000 * minute < frame["timestamp"]:
+            target_frame = frame
+            for participantNumber in frame["participantFrames"]:
+                participant = frame["participantFrames"][participantNumber]
+                participant["k+a"] = 0
+                participant["deaths"] = 0
+            break
     for frame in data["frames"]:
         if frame["timestamp"] < 60000 * (minute + 1):
             events = frame["events"]
             for event in events:
                 if event["type"] == "CHAMPION_KILL":
-
+                    if event["killerId"] != 0:
+                        target_frame["participantFrames"][str(event["killerId"])]["k+a"] += 1
+                        target_frame["participantFrames"][str(event["victimId"])]["deaths"] += 1
+    return data
 
 
 def get_stats_at_minute(match_id: str, minute: int) -> dict:
