@@ -131,7 +131,8 @@ def get_data_dict():
         "damageMinute": "damage / minute",
         "totalGold": "gold at 15",
         "deaths": "deaths at 15",
-        "k+a": "kills plus assists at 15"
+        "k+a": "kills plus assists at 15",
+        "machin": "total number of jungle monster killed"
     }
 
 
