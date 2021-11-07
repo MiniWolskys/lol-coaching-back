@@ -1,5 +1,4 @@
 import requests
-import sys
 import pandas as pd
 import time
 
@@ -134,7 +133,8 @@ def get_data_dict():
         "damageMinute": "damage / minute",
         "totalGold": "gold at 15",
         "deaths": "deaths at 15",
-        "k+a": "kills plus assists at 15"
+        "k+a": "kills plus assists at 15",
+        "machin": "total number of jungle monster killed"
     }
 
 
@@ -355,13 +355,16 @@ def main(username: str, position: str):
         champion_data[champion].print()
     print("")
 
+    df_general = pd.DataFrame({
+        'Player': [username],
+        'position': [position],
+        'test': [average_data.data['goldEfficiency']]
+    })
 
-    df_general = pd.DataFrame({'Player': [username],
-                    'position': [position],
-                    'test':[average_data.data['goldEfficiency']]
-                    })
-
-    df_data = pd.DataFrame({'col1': [key for key in average_data.data.keys()], 'col2': [val for val in average_data.data.values()]})
+    df_data = pd.DataFrame({
+        'col1': [key for key in average_data.data.keys()],
+        'col2': [val for val in average_data.data.values()]
+    })
 
     writer = pd.ExcelWriter('results\\results_1.xlsx', engine='xlsxwriter')
 
@@ -369,6 +372,7 @@ def main(username: str, position: str):
     df_data.to_excel(writer, sheet_name='page_results_data', index=False)
 
     writer.save()
+
 
 for p in player_list:
     main(p, player_list[p])
