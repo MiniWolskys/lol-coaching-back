@@ -1,6 +1,8 @@
 import requests
 import sys
 import pandas as pd
+import time
+
 
 from configuration import config
 
@@ -15,6 +17,15 @@ BY_PUUID = "by-puuid"
 
 # Getting RIOT API key defined in config.ini
 api_key = config.get_api_key()
+
+player_list = {
+    "Bac31aquarium": "TOP",
+    "Enexam": "JUNGLE",
+    "medo38": "MIDDLE",
+    "WinterWood": "MIDDLE",
+    "RitoMistake": "BOTTOM",
+    "Gildal3502": "UTILITY"
+}
 
 
 class Data:
@@ -85,9 +96,46 @@ class Data:
                 self.lose_data[elem] = self.lose_data[elem] / self.lose_count
 
     def print(self):
-        print(self.data, self.count)
-        print(self.win_data, self.win_count)
-        print(self.lose_data, self.lose_count)
+        data_dict = get_data_dict()
+        print(f"On {self.count} games:")
+        for elem in self.data:
+            print(f"\t{data_dict[elem]}: {self.data[elem]}")
+        print(f"On {self.win_count} won games:")
+        for elem in self.win_data:
+            print(f"\t{data_dict[elem]}: {self.win_data[elem]}")
+        print(f"On {self.lose_count} lost games:")
+        for elem in self.lose_data:
+            print(f"\t{data_dict[elem]}: {self.lose_data[elem]}")
+
+
+class APIRequest:
+    def __init__(self):
+        self.api_request_count = 0
+
+    def make_request(self, url: str) -> requests.Response:
+        if self.api_request_count >= 100:
+            time.sleep(120)
+            self.api_request_count = 0
+        self.api_request_count += 1
+        req = requests.get(url)
+        return req
+
+
+api_request = APIRequest()
+
+
+def get_data_dict():
+    return {
+        "damageShare": "% of total team damage",
+        "goldShare": "% of total team gold",
+        "goldEfficiency": "% of damage dealt for each gold",
+        "csmin": "cs / minute",
+        "visionMinute": "vision / minute",
+        "damageMinute": "damage / minute",
+        "totalGold": "gold at 15",
+        "deaths": "deaths at 15",
+        "k+a": "kills plus assists at 15"
+    }
 
 
 def get_team_data_list():
@@ -95,7 +143,12 @@ def get_team_data_list():
 
 
 def get_specific_data_list():
-    return {"goldEfficiency": "goldEfficiency"}
+    return {
+        "goldEfficiency": "goldEfficiency",
+        "csmin": "csmin",
+        "visionMinute": "visionMinute",
+        "damageMinute": "damageMinute"
+    }
 
 
 def get_at_x_data_list():
@@ -108,14 +161,14 @@ def check_position(position: str) -> bool:
     return False
 
 
-def calculate_gold_efficiency(goldEarned: int, damageDealt: int) -> float:
-    player_efficiency = damageDealt / goldEarned * 100
+def calculate_gold_efficiency(gold_earned: int, damage_dealt: int) -> float:
+    player_efficiency = damage_dealt / gold_earned * 100
     return player_efficiency
 
 
 def get_player_puuid(username: str) -> str:
     url = f"{BASE_URL_EUW}/{GAME}/{SUMMONER_API}/{BY_NAME}/{username}?api_key={api_key}"
-    resp = requests.get(url)
+    resp = api_request.make_request(url)
     data = resp.json()
     if "puuid" not in data:
         raise Exception(f"No user found for username {username}, check API KEY is still valid and user is correct.")
@@ -125,7 +178,7 @@ def get_player_puuid(username: str) -> str:
 
 def get_player_last_games(puuid: str, count: int) -> list:
     url = f"{BASE_URL_EUROPE}/{GAME}/{MATCH_API}/{BY_PUUID}/{puuid}/ids?start=0&count={count}&api_key={api_key}"
-    resp = requests.get(url)
+    resp = api_request.make_request(url)
     match_list = resp.json()
     return match_list
 
@@ -143,16 +196,22 @@ def check_player_position(match_stat: dict, name=None, puuid=None, position=None
     return False
 
 
+def get_game_duration(time_t: int) -> int:
+    if time_t < 15000:
+        return time_t
+    return int(time_t / 1000)
+
+
 def is_match_valid(match_stat: dict) -> bool:
     if match_stat["mapId"] == 11 and match_stat["gameMode"] == "CLASSIC" and match_stat["gameType"] == "MATCHED_GAME"\
-            and match_stat["gameDuration"] > 901:
+            and get_game_duration(match_stat["gameDuration"]) > 900:
         return True
     return False
 
 
 def get_match_stats(match_id: str) -> dict:
     url = f"{BASE_URL_EUROPE}/{GAME}/{MATCH_API}/{match_id}?api_key={api_key}"
-    resp = requests.get(url)
+    resp = api_request.make_request(url)
     data_json = resp.json()
     if "info" not in data_json:
         raise Exception(f"No information retrieved for match {match_id}")
@@ -183,7 +242,7 @@ def get_extra_data_at_minute(data: dict, minute: int) -> dict:
 
 def get_stats_at_minute(match_id: str, minute: int) -> dict:
     url = f"{BASE_URL_EUROPE}/{GAME}/{MATCH_API}/{match_id}/timeline?api_key={api_key}"
-    resp = requests.get(url)
+    resp = api_request.make_request(url)
     data_json = resp.json()
     if "info" not in data_json:
         raise Exception(f"No information retrieved for match {match_id}")
@@ -198,6 +257,8 @@ def get_stats_at_minute(match_id: str, minute: int) -> dict:
 def aggregate_data(match_data: dict, minutes_data=None, team_data=None) -> dict:
     if minutes_data is not None:
         for minute in minutes_data:
+            if "timestamp" not in minute:
+                print(match_data)
             timestamp = minute["timestamp"]
             minute_data = minute["data"]
             for player in match_data["participants"]:
@@ -223,6 +284,7 @@ def create_team_stats(match_data: dict, data_list: dict) -> dict:
 
 
 def get_player_data(match_data: dict, username: str, share_team_stat=None) -> dict:
+    game_duration = get_game_duration(match_data["gameDuration"])
     for player in match_data["participants"]:
         if player["summonerName"] == username:
             if share_team_stat is not None:
@@ -231,6 +293,9 @@ def get_player_data(match_data: dict, username: str, share_team_stat=None) -> di
                                    match_data["teams"][int(player["teamId"]/100-1)][share_team_stat[elem]] * 100
             player["goldEfficiency"] = calculate_gold_efficiency(player["goldEarned"],
                                                                  player["totalDamageDealtToChampions"])
+            player["csmin"] = (player["totalMinionsKilled"] / game_duration) * 60
+            player["visionMinute"] = (player["visionScore"] / game_duration) * 60
+            player["damageMinute"] = (player["totalDamageDealtToChampions"] / game_duration) * 60
             player["k+a"] = player["kills"] + player["assists"]
             return player
     return {}
@@ -263,12 +328,9 @@ def get_champion_list(player_stats: list) -> list:
     return champion_list
 
 
-def main():
-    if len(sys.argv) < 3:
-        return 0
-    username = sys.argv[1]
-    position = sys.argv[2].upper()
-    match_list = get_match_list(username, 5)
+def main(username: str, position: str):
+    position = position.upper()
+    match_list = get_match_list(username, 100)
     player_stats = get_set_data(match_list, username, position)
     champion_list = get_champion_list(player_stats)
     specific_data = get_specific_data_list()
@@ -285,11 +347,13 @@ def main():
             if game["championName"] == champion:
                 champion_data[champion].add_data(game)
     average_data.make_average()
+    print(username, ":")
     average_data.print()
     for champion in champion_list:
         champion_data[champion].make_average()
         print(champion, ":")
         champion_data[champion].print()
+    print("")
 
 
     df_general = pd.DataFrame({'Player': [username],
@@ -306,4 +370,5 @@ def main():
 
     writer.save()
 
-main()
+for p in player_list:
+    main(p, player_list[p])
