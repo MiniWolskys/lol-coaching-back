@@ -5,7 +5,7 @@ import time
 
 from configuration import config
 
-# RIOT API Related informations
+# RIOT API Related information
 BASE_URL_EUW = "https://euw1.api.riotgames.com"
 BASE_URL_EUROPE = "https://europe.api.riotgames.com"
 GAME = "lol"
@@ -18,12 +18,8 @@ BY_PUUID = "by-puuid"
 api_key = config.get_api_key()
 
 player_list = {
-    "Bac31aquarium": "TOP",
-    "Enexam": "JUNGLE",
-    "medo38": "MIDDLE",
-    "WinterWood": "MIDDLE",
-    "RitoMistake": "BOTTOM",
-    "Gildal3502": "UTILITY"
+    "Ilowa": "BOTTOM",
+    "Yizic": "BOTTOM"
 }
 
 
@@ -330,7 +326,7 @@ def get_champion_list(player_stats: list) -> list:
 
 def main(username: str, position: str):
     position = position.upper()
-    match_list = get_match_list(username, 100)
+    match_list = get_match_list(username, 10)
     player_stats = get_set_data(match_list, username, position)
     champion_list = get_champion_list(player_stats)
     specific_data = get_specific_data_list()
@@ -366,13 +362,19 @@ def main(username: str, position: str):
         'col2': [val for val in average_data.data.values()]
     })
 
-    writer = pd.ExcelWriter('results\\results_1.xlsx', engine='xlsxwriter')
-
     df_general.to_excel(writer, sheet_name='page_results_general', index=False)
-    df_data.to_excel(writer, sheet_name='page_results_data', index=False)
+    df_data.to_excel(writer, sheet_name=f'{username}_data', index=False)
 
-    writer.save()
+    for champion in champion_list:
+        df_champ_data = pd.DataFrame({
+            key: [f"{champion_data[champion].data[key]:.2f}"] for key in champion_data[champion].data.keys()
+        })
+        df_champ_data.to_excel(writer, sheet_name=f'{username}_{champion}_data', index=False)
 
+
+writer = pd.ExcelWriter('results\\results_1.xlsx', engine='xlsxwriter')
 
 for p in player_list:
     main(p, player_list[p])
+
+writer.save()
