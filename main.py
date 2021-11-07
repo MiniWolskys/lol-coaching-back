@@ -1,7 +1,10 @@
 import requests
+import sys
+import pandas as pd
 import time
 
-from LoLCoaching.config import config
+
+from configuration import config
 
 # RIOT API Related informations
 BASE_URL_EUW = "https://euw1.api.riotgames.com"
@@ -336,6 +339,7 @@ def main(username: str, position: str):
     at_x_data = get_at_x_data_list()
     average_data = Data(team_data, specific_data, at_x_data)
     champion_data = {}
+
     for champion in champion_list:
         champion_data[champion] = Data(team_data, specific_data, at_x_data)
     for game in player_stats:
@@ -352,6 +356,20 @@ def main(username: str, position: str):
         champion_data[champion].print()
     print("")
 
+
+    df_general = pd.DataFrame({'Player': [username],
+                    'position': [position],
+                    'test':[average_data.data['goldEfficiency']]
+                    })
+
+    df_data = pd.DataFrame({'col1': [key for key in average_data.data.keys()], 'col2': [val for val in average_data.data.values()]})
+
+    writer = pd.ExcelWriter('results\\results_1.xlsx', engine='xlsxwriter')
+
+    df_general.to_excel(writer, sheet_name='page_results_general', index=False)
+    df_data.to_excel(writer, sheet_name='page_results_data', index=False)
+
+    writer.save()
 
 for p in player_list:
     main(p, player_list[p])
