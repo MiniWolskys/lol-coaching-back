@@ -1,9 +1,10 @@
+import os
 from configparser import ConfigParser
-
 
 def read_api_key() -> str:
     config = ConfigParser()
-    config.read('../config/config.ini')
+    path = '/'.join((os.path.abspath(__file__).replace('\\', '/')).split('/')[:-1])
+    config.read(os.path.join(path, 'config.ini'))
     if "CORE" in config and "ApiKey" in config["CORE"]:
         return config["CORE"]["ApiKey"]
     return ""
