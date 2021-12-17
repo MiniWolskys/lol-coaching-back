@@ -14,17 +14,44 @@ MATCH_API = "match/v5/matches"
 BY_NAME = "by-name"
 BY_PUUID = "by-puuid"
 
-# Getting RIOT API key defined in config.ini
-api_key = config.get_api_key()
 
-player_list = {
-    "Ilowa": "BOTTOM",
-    "Yizic": "BOTTOM"
-}
+class Player:
+    def __init__(self, username: str, team_data: dict, specific_data: dict, at_x_data: dict, champion_list: list) -> None:
+        self.username = username
+        self.all_data = Data(team_data, specific_data, at_x_data)
+        self.champion_data = {}
+        self.champion_list = champion_list
+
+        for champion in champion_list:
+            self.champion_data[champion] = Data(team_data, specific_data, at_x_data)
+
+    def process_data(self, all_games):
+        self.add_all_games_data(all_games)
+        self.make_average()
+
+    def make_average(self):
+        self.all_data.make_average()
+        for champion in self.champion_list:
+            self.champion_data[champion].make_average()
+
+    def add_all_games_data(self, all_games):
+        for game in all_games:
+            self.all_data.add_data(game)
+            for champion in self.champion_list:
+                if game["championName"] == champion:
+                    self.champion_data[champion].add_data(game)
+
+    def print_data(self):
+        print(self.username, ":")
+        self.all_data.print()
+        for champion in self.champion_list:
+            print(champion, ":")
+            self.champion_data[champion].print()
+        print("")
 
 
 class Data:
-    def __init__(self, teams_data, specific_data, data_at_x):
+    def __init__(self, teams_data: dict, specific_data: dict, data_at_x: dict) -> None:
         self.teams_data_set = teams_data
         self.specific_data_set = specific_data
         self.data_at_x_set = data_at_x
@@ -47,7 +74,7 @@ class Data:
         self.win_count = 0
         self.lose_count = 0
 
-    def add_data(self, match):
+    def add_data(self, match: dict) -> None:
         for elem in self.data:
             if elem in self.teams_data_set:
                 self.data[elem] += match[elem]
@@ -81,7 +108,7 @@ class Data:
                             self.lose_data[elem] += match[key][elem]
             self.lose_count += 1
 
-    def make_average(self):
+    def make_average(self) -> None:
         for elem in self.data:
             if self.count > 0:
                 self.data[elem] = self.data[elem] / self.count
@@ -90,7 +117,7 @@ class Data:
             if self.lose_count > 0:
                 self.lose_data[elem] = self.lose_data[elem] / self.lose_count
 
-    def print(self):
+    def print(self) -> None:
         data_dict = get_data_dict()
         print(f"On {self.count} games:")
         for elem in self.data:
@@ -104,7 +131,7 @@ class Data:
 
 
 class APIRequest:
-    def __init__(self):
+    def __init__(self) -> None:
         self.api_request_count = 0
 
     def make_request(self, url: str) -> requests.Response:
@@ -324,57 +351,39 @@ def get_champion_list(player_stats: list) -> list:
     return champion_list
 
 
-def main(username: str, position: str):
+def get_player_stats(username: str, position: str) -> Player:
     position = position.upper()
-    match_list = get_match_list(username, 10)
+    match_list = get_match_list(username, 100)
     player_stats = get_set_data(match_list, username, position)
     champion_list = get_champion_list(player_stats)
     specific_data = get_specific_data_list()
     team_data = get_team_data_list()
     at_x_data = get_at_x_data_list()
-    average_data = Data(team_data, specific_data, at_x_data)
-    champion_data = {}
 
-    for champion in champion_list:
-        champion_data[champion] = Data(team_data, specific_data, at_x_data)
-    for game in player_stats:
-        average_data.add_data(game)
-        for champion in champion_list:
-            if game["championName"] == champion:
-                champion_data[champion].add_data(game)
-    average_data.make_average()
-    print(username, ":")
-    average_data.print()
-    for champion in champion_list:
-        champion_data[champion].make_average()
-        print(champion, ":")
-        champion_data[champion].print()
-    print("")
+    player_data = Player(username, team_data, specific_data, at_x_data, champion_list)
+    player_data.process_data(player_stats)
 
-    df_general = pd.DataFrame({
-        'Player': [username],
-        'position': [position],
-        'test': [average_data.data['goldEfficiency']]
-    })
+    return player_data
 
-    df_data = pd.DataFrame({
-        'col1': [key for key in average_data.data.keys()],
-        'col2': [val for val in average_data.data.values()]
-    })
 
-    df_general.to_excel(writer, sheet_name='page_results_general', index=False)
-    df_data.to_excel(writer, sheet_name=f'{username}_data', index=False)
+def main():
+    player_list = {
+        "MiniWolskys": "MIDDLE"
+    }
 
-    for champion in champion_list:
-        df_champ_data = pd.DataFrame({
-            key: [f"{champion_data[champion].data[key]:.2f}"] for key in champion_data[champion].data.keys()
-        })
-        df_champ_data.to_excel(writer, sheet_name=f'{username}_{champion}_data', index=False)
+    player_data = {}
 
+    for player in player_list:
+        player_data[player] = get_player_stats(player, player_list[player])
+
+    for player in player_data:
+        player_data[player].print_data()
+
+    writer.save()
+
+
+# Getting RIOT API key defined in config.ini
+api_key = config.get_api_key()
 
 writer = pd.ExcelWriter('results\\results_1.xlsx', engine='xlsxwriter')
-
-for p in player_list:
-    main(p, player_list[p])
-
-writer.save()
+main()
