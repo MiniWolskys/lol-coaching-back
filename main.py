@@ -1,5 +1,5 @@
 import requests
-import pandas as pd
+import csv
 import time
 
 
@@ -48,6 +48,25 @@ class Player:
             print(champion, ":")
             self.champion_data[champion].print()
         print("")
+
+    def organize(self):
+        res = [[self.username, self.all_data.count], ["wins", self.all_data.win_count], ["losses", self.all_data.lose_count]]
+        for data in self.all_data.data:
+            res[0].append(self.all_data.data[data])
+            res[1].append(self.all_data.win_data[data])
+            res[2].append(self.all_data.lose_data[data])
+        for champion in self.champion_list:
+            tmp_res = [champion, self.champion_data[champion].count]
+            win_tmp_res = ["wins", self.champion_data[champion].win_count]
+            lose_tmp_res = ["losses", self.champion_data[champion].lose_count]
+            for data in self.champion_data[champion].data:
+                tmp_res.append(self.champion_data[champion].data[data])
+                win_tmp_res.append(self.champion_data[champion].win_data[data])
+                lose_tmp_res.append(self.champion_data[champion].lose_data[data])
+            res.append(tmp_res)
+            res.append(win_tmp_res)
+            res.append(lose_tmp_res)
+        return res
 
 
 class Data:
@@ -368,7 +387,11 @@ def get_player_stats(username: str, position: str) -> Player:
 
 def main():
     player_list = {
-        "MiniWolskys": "MIDDLE"
+        "LaPoutreDeBamaca": "MIDDLE",
+        "Toucan Celeste": "UTILITY",
+        "Shac Nicholson": "JUNGLE",
+        "Hokage ŇoøB": "TOP",
+        "Gudule": "BOTTOM"
     }
 
     player_data = {}
@@ -379,11 +402,19 @@ def main():
     for player in player_data:
         player_data[player].print_data()
 
-    writer.save()
+    return player_data
 
 
 # Getting RIOT API key defined in config.ini
 api_key = config.get_api_key()
 
-writer = pd.ExcelWriter('results\\results_1.xlsx', engine='xlsxwriter')
-main()
+header = ['Player Name / champion', 'games count', '% of team damage', '% of team gold', 'gold efficiency (%)', 'cs/min', 'vision/min', 'damage/min', 'gold@15', 'death@15', 'k+a@15']
+with open("results/results.csv", "w", encoding="UTF8", newline="") as f:
+    player_data = main()
+    writer = csv.writer(f)
+    writer.writerow(header)
+    for player in player_data:
+        data = player_data[player].organize()
+        for d in data:
+            writer.writerow(d)
+
