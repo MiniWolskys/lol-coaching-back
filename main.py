@@ -1,34 +1,6 @@
 import csv
 
-from utils import APIRequest
-from configuration.config import Config
-
-class InputPlayer:
-    def __init__(self, username, position, gameCount, region):
-        self.username = username
-        self.position = position
-        self.gameCount = gameCount
-        self.region = region
-        self.puuid = None
-
-    def setPuuid(self, puuid):
-        self.puuid = puuid
-
-    def getUsername(self):
-        return self.username
-
-    def getPuuid(self):
-        return self.puuid
-
-    def getPosition(self):
-        return self.position
-
-    def getRegion(self):
-        return self.region
-
-    def getGameCount(self):
-        return self.gameCount
-
+from utils.lol_utils import InputPlayer, LoL
 
 class Player:
     def __init__(self, username: str, team_data: dict, specific_data: dict, at_x_data: dict, champion_list: list) -> None:
@@ -207,23 +179,6 @@ def calculate_gold_efficiency(gold_earned: int, damage_dealt: int) -> float:
     return player_efficiency
 
 
-def get_player_puuid(player: InputPlayer) -> str:
-    url = f'{config.get(player.getRegion(), "BASE_URL_PLATFORM")}{config.get("SUMMONER", "BY_NAME")}{player.getUsername()}?api_key={api_key}'
-    resp = api_request.make_request(url)
-    data = resp.json()
-    if "puuid" not in data:
-        raise Exception(f"No user found for username {player.getUsername()}, check API KEY is still valid and user is correct.")
-    puuid = data["puuid"]
-    return puuid
-
-
-def get_player_last_games(player: InputPlayer) -> list:
-    url = f'{config.get(player.getRegion(), "BASE_URL_REGION")}{config.get("MATCH", "BY_PUUID")}{player.getPuuid()}/ids?start=0&count={player.getGameCount()}&api_key={api_key}'
-    resp = api_request.make_request(url)
-    match_list = resp.json()
-    return match_list
-
-
 def check_player_position(match_stat: dict, name=None, puuid=None, position=None) -> bool:
     if (name is None and puuid is None) or position is None:
         if name is None and puuid is None:
@@ -248,51 +203,6 @@ def is_match_valid(match_stat: dict) -> bool:
             and get_game_duration(match_stat["gameDuration"]) > 900:
         return True
     return False
-
-
-def get_match_stats(match_id: str, region: str) -> dict:
-    url = f'{config.get(region, "BASE_URL_REGION")}{config.get("MATCH", "BY_MATCH_ID")}{match_id}?api_key={api_key}'
-    resp = api_request.make_request(url)
-    data_json = resp.json()
-    if "info" not in data_json:
-        raise Exception(f"No information retrieved for match {match_id}")
-    data = data_json["info"]
-    return data
-
-
-def get_extra_data_at_minute(data: dict, minute: int) -> dict:
-    target_frame = 0
-    for frame in data["frames"]:
-        if 60000 * minute < frame["timestamp"]:
-            target_frame = frame
-            for participantNumber in frame["participantFrames"]:
-                participant = frame["participantFrames"][participantNumber]
-                participant["k+a"] = 0
-                participant["deaths"] = 0
-            break
-    for frame in data["frames"]:
-        if frame["timestamp"] < 60000 * (minute + 1):
-            events = frame["events"]
-            for event in events:
-                if event["type"] == "CHAMPION_KILL":
-                    if event["killerId"] != 0:
-                        target_frame["participantFrames"][str(event["killerId"])]["k+a"] += 1
-                        target_frame["participantFrames"][str(event["victimId"])]["deaths"] += 1
-    return data
-
-
-def get_stats_at_minute(match_id: str, minute: int, region: str) -> dict:
-    url = f'{config.get(region, "BASE_URL_REGION")}{config.get("MATCH", "BY_MATCH_ID")}{match_id}/timeline?api_key={api_key}'
-    resp = api_request.make_request(url)
-    data_json = resp.json()
-    if "info" not in data_json:
-        raise Exception(f"No information retrieved for match {match_id}")
-    data = data_json["info"]
-    data = get_extra_data_at_minute(data, minute)
-    for frame in data["frames"]:
-        if 60000 * (minute + 1) > frame["timestamp"] > 60000 * minute:
-            return {"timestamp": frame["timestamp"], "data": frame["participantFrames"]}
-    return {}
 
 
 def aggregate_data(match_data: dict, minutes_data=None, team_data=None) -> dict:
@@ -346,16 +256,16 @@ def get_set_data(match_list, player: InputPlayer):
     team_data_list = get_team_data_list()
     player_stats = []
     for match in match_list:
-        data = get_match_stats(match, player.getRegion())
+        data = lol.get_match_stats(match, player.getRegion())
         if is_match_valid(data) is True and check_player_position(data, name=player.getUsername(), position=player.getPosition()) is True:
-            data_at_15 = get_stats_at_minute(match, 15, player.getRegion())
+            data_at_15 = lol.get_stats_at_minute(match, 15, player.getRegion())
             team_data = create_team_stats(data, team_data_list)
             match_data = aggregate_data(data, minutes_data=[data_at_15], team_data=team_data)
             player_stats.append(get_player_data(match_data, player.getUsername(), team_data_list))
     return player_stats
 
 def get_match_list(puuid: str, count: int) -> list:
-    match_list = get_player_last_games(puuid, count)
+    match_list = lol.get_player_last_games(puuid, count)
     return match_list
 
 
@@ -368,8 +278,8 @@ def get_champion_list(player_stats: list) -> list:
 
 
 def get_player_stats(player: InputPlayer) -> Player:
-    player.setPuuid(get_player_puuid(player))
-    match_list = get_player_last_games(player)
+    player.setPuuid(lol.get_player_puuid(player))
+    match_list = lol.get_player_last_games(player)
     player_stats = get_set_data(match_list, player)
     champion_list = get_champion_list(player_stats)
     specific_data = get_specific_data_list()
@@ -420,12 +330,5 @@ def main():
         writer = init_csv(f)
         data_to_csv(player_data, writer)
 
-
-# Setting up file variables
-config = Config()
-api_request = APIRequest()
-
-# Getting RIOT API key defined in config.ini
-api_key = config.get_api_key()
-
+lol = LoL()
 main()
