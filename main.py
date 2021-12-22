@@ -407,7 +407,8 @@ def data_to_csv(player_data: dict, writer: csv.writer) -> None:
 
 
 def init_csv(f) -> csv.writer:
-    writer = csv.writer(f)
+    csv.register_dialect('unixpwd', delimiter=';')
+    writer = csv.writer(f, 'unixpwd')
     header = ['Player Name / champion', 'games count', '% of team damage', '% of team gold', 'gold efficiency (%)', 'cs/min', 'vision/min', 'damage/min', 'gold@15', 'death@15', 'k+a@15']
     writer.writerow(header)
     return writer
