@@ -414,16 +414,25 @@ def get_players_stats():
     return player_data
 
 
-def main():
+def data_to_csv(player_data: dict, writer: csv.writer) -> None:
+    for player in player_data:
+        data = player_data[player].organize()
+        for d in data:
+            writer.writerow(d)
+
+
+def init_csv(f) -> csv.writer:
+    writer = csv.writer(f)
     header = ['Player Name / champion', 'games count', '% of team damage', '% of team gold', 'gold efficiency (%)', 'cs/min', 'vision/min', 'damage/min', 'gold@15', 'death@15', 'k+a@15']
+    writer.writerow(header)
+    return writer
+
+
+def main():
     with open("results/results.csv", "w", encoding="UTF8", newline="") as f:
         player_data = get_players_stats()
-        writer = csv.writer(f)
-        writer.writerow(header)
-        for player in player_data:
-            data = player_data[player].organize()
-            for d in data:
-                writer.writerow(d)
+        writer = init_csv(f)
+        data_to_csv(player_data, writer)
 
 
 # Setting up file variables
