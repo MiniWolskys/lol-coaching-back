@@ -5,6 +5,32 @@ import time
 
 from configuration.config import Config
 
+class InputPlayer:
+    def __init__(self, username, position, gameCount, region):
+        self.username = username
+        self.position = position
+        self.gameCount = gameCount
+        self.region = region
+        self.puuid = None
+
+    def setPuuid(self, puuid):
+        self.puuid = puuid
+
+    def getUsername(self):
+        return self.username
+
+    def getPuuid(self):
+        return self.puuid
+
+    def getPosition(self):
+        return self.position
+
+    def getRegion(self):
+        return self.region
+
+    def getGameCount(self):
+        return self.gameCount
+
 
 class Player:
     def __init__(self, username: str, team_data: dict, specific_data: dict, at_x_data: dict, champion_list: list) -> None:
@@ -196,18 +222,18 @@ def calculate_gold_efficiency(gold_earned: int, damage_dealt: int) -> float:
     return player_efficiency
 
 
-def get_player_puuid(username: str) -> str:
-    url = f'{config.get("EUW", "BASE_URL_PLATFORM")}{config.get("SUMMONER", "BY_NAME")}{username}?api_key={api_key}'
+def get_player_puuid(player: InputPlayer) -> str:
+    url = f'{config.get(player.getRegion(), "BASE_URL_PLATFORM")}{config.get("SUMMONER", "BY_NAME")}{player.getUsername()}?api_key={api_key}'
     resp = api_request.make_request(url)
     data = resp.json()
     if "puuid" not in data:
-        raise Exception(f"No user found for username {username}, check API KEY is still valid and user is correct.")
+        raise Exception(f"No user found for username {player.getUsername()}, check API KEY is still valid and user is correct.")
     puuid = data["puuid"]
     return puuid
 
 
-def get_player_last_games(puuid: str, count: int) -> list:
-    url = f'{config.get("EUW", "BASE_URL_REGION")}{config.get("MATCH", "BY_PUUID")}{puuid}/ids?start=0&count={count}&api_key={api_key}'
+def get_player_last_games(player: InputPlayer) -> list:
+    url = f'{config.get(player.getRegion(), "BASE_URL_REGION")}{config.get("MATCH", "BY_PUUID")}{player.getPuuid()}/ids?start=0&count={player.getGameCount()}&api_key={api_key}'
     resp = api_request.make_request(url)
     match_list = resp.json()
     return match_list
@@ -239,8 +265,8 @@ def is_match_valid(match_stat: dict) -> bool:
     return False
 
 
-def get_match_stats(match_id: str) -> dict:
-    url = f'{config.get("EUW", "BASE_URL_REGION")}{config.get("MATCH", "BY_MATCH_ID")}{match_id}?api_key={api_key}'
+def get_match_stats(match_id: str, region: str) -> dict:
+    url = f'{config.get(region, "BASE_URL_REGION")}{config.get("MATCH", "BY_MATCH_ID")}{match_id}?api_key={api_key}'
     resp = api_request.make_request(url)
     data_json = resp.json()
     if "info" not in data_json:
@@ -270,8 +296,8 @@ def get_extra_data_at_minute(data: dict, minute: int) -> dict:
     return data
 
 
-def get_stats_at_minute(match_id: str, minute: int) -> dict:
-    url = f'{config.get("EUW", "BASE_URL_REGION")}{config.get("MATCH", "BY_MATCH_ID")}{match_id}/timeline?api_key={api_key}'
+def get_stats_at_minute(match_id: str, minute: int, region: str) -> dict:
+    url = f'{config.get(region, "BASE_URL_REGION")}{config.get("MATCH", "BY_MATCH_ID")}{match_id}/timeline?api_key={api_key}'
     resp = api_request.make_request(url)
     data_json = resp.json()
     if "info" not in data_json:
@@ -331,21 +357,19 @@ def get_player_data(match_data: dict, username: str, share_team_stat=None) -> di
     return {}
 
 
-def get_set_data(match_list, username, position):
+def get_set_data(match_list, player: InputPlayer):
     team_data_list = get_team_data_list()
     player_stats = []
     for match in match_list:
-        data = get_match_stats(match)
-        if is_match_valid(data) is True and check_player_position(data, name=username, position=position) is True:
-            data_at_15 = get_stats_at_minute(match, 15)
+        data = get_match_stats(match, player.getRegion())
+        if is_match_valid(data) is True and check_player_position(data, name=player.getUsername(), position=player.getPosition()) is True:
+            data_at_15 = get_stats_at_minute(match, 15, player.getRegion())
             team_data = create_team_stats(data, team_data_list)
             match_data = aggregate_data(data, minutes_data=[data_at_15], team_data=team_data)
-            player_stats.append(get_player_data(match_data, username, team_data_list))
+            player_stats.append(get_player_data(match_data, player.getUsername(), team_data_list))
     return player_stats
 
-
-def get_match_list(username: str, count: int) -> list:
-    puuid = get_player_puuid(username)
+def get_match_list(puuid: str, count: int) -> list:
     match_list = get_player_last_games(puuid, count)
     return match_list
 
@@ -358,35 +382,49 @@ def get_champion_list(player_stats: list) -> list:
     return champion_list
 
 
-def get_player_stats(username: str, position: str) -> Player:
-    position = position.upper()
-    match_list = get_match_list(username, 10)
-    player_stats = get_set_data(match_list, username, position)
+def get_player_stats(player: InputPlayer) -> Player:
+    player.setPuuid(get_player_puuid(player))
+    match_list = get_player_last_games(player)
+    player_stats = get_set_data(match_list, player)
     champion_list = get_champion_list(player_stats)
     specific_data = get_specific_data_list()
     team_data = get_team_data_list()
     at_x_data = get_at_x_data_list()
 
-    player_data = Player(username, team_data, specific_data, at_x_data, champion_list)
+    player_data = Player(player.getUsername(), team_data, specific_data, at_x_data, champion_list)
     player_data.process_data(player_stats)
 
     return player_data
 
 
-def main():
+def get_players_stats():
     player_list = {
-        "MiniWolskys": "MIDDLE"
+        InputPlayer(username="MiniWolskys", position="MIDDLE", gameCount=10, region="EUW"),
+        InputPlayer(username="1Bulgarian", position="MIDDLE", gameCount=10, region="EUNE")
     }
 
     player_data = {}
 
     for player in player_list:
-        player_data[player] = get_player_stats(player, player_list[player])
+        player_data[player.getUsername()] = get_player_stats(player)
 
     for player in player_data:
         player_data[player].print_data()
 
     return player_data
+
+
+def main():
+    header = ['Player Name / champion', 'games count', '% of team damage', '% of team gold', 'gold efficiency (%)', 'cs/min', 'vision/min', 'damage/min', 'gold@15', 'death@15', 'k+a@15']
+    with open("results/results.csv", "w", encoding="UTF8", newline="") as f:
+        player_data = get_players_stats()
+        writer = csv.writer(f)
+        writer.writerow(header)
+        for player in player_data:
+            data = player_data[player].organize()
+            for d in data:
+                writer.writerow(d)
+
 
 # Setting up file variables
 config = Config()
@@ -395,13 +433,4 @@ api_request = APIRequest()
 # Getting RIOT API key defined in config.ini
 api_key = config.get_api_key()
 
-header = ['Player Name / champion', 'games count', '% of team damage', '% of team gold', 'gold efficiency (%)', 'cs/min', 'vision/min', 'damage/min', 'gold@15', 'death@15', 'k+a@15']
-with open("results/results.csv", "w", encoding="UTF8", newline="") as f:
-    player_data = main()
-    writer = csv.writer(f)
-    writer.writerow(header)
-    for player in player_data:
-        data = player_data[player].organize()
-        for d in data:
-            writer.writerow(d)
-
+main()
