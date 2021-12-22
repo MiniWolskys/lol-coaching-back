@@ -3,16 +3,7 @@ import csv
 import time
 
 
-from configuration import config
-
-# RIOT API Related information
-BASE_URL_EUW = "https://euw1.api.riotgames.com"
-BASE_URL_EUROPE = "https://europe.api.riotgames.com"
-GAME = "lol"
-SUMMONER_API = "summoner/v4/summoners"
-MATCH_API = "match/v5/matches"
-BY_NAME = "by-name"
-BY_PUUID = "by-puuid"
+from configuration.config import Config
 
 
 class Player:
@@ -162,9 +153,6 @@ class APIRequest:
         return req
 
 
-api_request = APIRequest()
-
-
 def get_data_dict():
     return {
         "damageShare": "% of total team damage",
@@ -209,7 +197,7 @@ def calculate_gold_efficiency(gold_earned: int, damage_dealt: int) -> float:
 
 
 def get_player_puuid(username: str) -> str:
-    url = f"{BASE_URL_EUW}/{GAME}/{SUMMONER_API}/{BY_NAME}/{username}?api_key={api_key}"
+    url = f'{config.get("EUW", "BASE_URL_PLATFORM")}{config.get("SUMMONER", "BY_NAME")}{username}?api_key={api_key}'
     resp = api_request.make_request(url)
     data = resp.json()
     if "puuid" not in data:
@@ -219,7 +207,7 @@ def get_player_puuid(username: str) -> str:
 
 
 def get_player_last_games(puuid: str, count: int) -> list:
-    url = f"{BASE_URL_EUROPE}/{GAME}/{MATCH_API}/{BY_PUUID}/{puuid}/ids?start=0&count={count}&api_key={api_key}"
+    url = f'{config.get("EUW", "BASE_URL_REGION")}{config.get("MATCH", "BY_PUUID")}{puuid}/ids?start=0&count={count}&api_key={api_key}'
     resp = api_request.make_request(url)
     match_list = resp.json()
     return match_list
@@ -252,7 +240,7 @@ def is_match_valid(match_stat: dict) -> bool:
 
 
 def get_match_stats(match_id: str) -> dict:
-    url = f"{BASE_URL_EUROPE}/{GAME}/{MATCH_API}/{match_id}?api_key={api_key}"
+    url = f'{config.get("EUW", "BASE_URL_REGION")}{config.get("MATCH", "BY_MATCH_ID")}{match_id}?api_key={api_key}'
     resp = api_request.make_request(url)
     data_json = resp.json()
     if "info" not in data_json:
@@ -283,7 +271,7 @@ def get_extra_data_at_minute(data: dict, minute: int) -> dict:
 
 
 def get_stats_at_minute(match_id: str, minute: int) -> dict:
-    url = f"{BASE_URL_EUROPE}/{GAME}/{MATCH_API}/{match_id}/timeline?api_key={api_key}"
+    url = f'{config.get("EUW", "BASE_URL_REGION")}{config.get("MATCH", "BY_MATCH_ID")}{match_id}/timeline?api_key={api_key}'
     resp = api_request.make_request(url)
     data_json = resp.json()
     if "info" not in data_json:
@@ -372,7 +360,7 @@ def get_champion_list(player_stats: list) -> list:
 
 def get_player_stats(username: str, position: str) -> Player:
     position = position.upper()
-    match_list = get_match_list(username, 100)
+    match_list = get_match_list(username, 10)
     player_stats = get_set_data(match_list, username, position)
     champion_list = get_champion_list(player_stats)
     specific_data = get_specific_data_list()
@@ -387,11 +375,7 @@ def get_player_stats(username: str, position: str) -> Player:
 
 def main():
     player_list = {
-        "LaPoutreDeBamaca": "MIDDLE",
-        "Toucan Celeste": "UTILITY",
-        "Shac Nicholson": "JUNGLE",
-        "Hokage ŇoøB": "TOP",
-        "Gudule": "BOTTOM"
+        "MiniWolskys": "MIDDLE"
     }
 
     player_data = {}
@@ -404,6 +388,9 @@ def main():
 
     return player_data
 
+# Setting up file variables
+config = Config()
+api_request = APIRequest()
 
 # Getting RIOT API key defined in config.ini
 api_key = config.get_api_key()
