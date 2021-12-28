@@ -1,5 +1,5 @@
 from configuration.config import Config
-from utils import APIRequest
+from utils.utils import APIRequest
 
 def get_game_duration(time_t: int) -> int:
     if time_t < 15000:

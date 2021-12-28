@@ -29,6 +29,12 @@ class InputPlayer:
         return self.gameCount
 
 
+class InputTeam:
+    def __init__(self, teamName:str, playerList: dict):
+        self.teamName = teamName
+        self.playerList = playerList
+
+
 class LoL:
     def __init__(self) -> None:
         self.config = Config()
@@ -45,9 +51,17 @@ class LoL:
         return puuid
 
     def get_player_last_games(self, player: InputPlayer) -> list:
-        url = f'{self.config.get(player.getRegion(), "BASE_URL_REGION")}{self.config.get("MATCH", "BY_PUUID")}{player.getPuuid()}/ids?start=0&count={player.getGameCount()}&api_key={self.api_key}'
-        resp = self.api_request.make_request(url)
-        match_list = resp.json()
+        match_list = []
+        game_count = player.getGameCount()
+        start = 0
+        while game_count > 0:
+            current_game_count = 100 if game_count > 100 else game_count
+            url = f'{self.config.get(player.getRegion(), "BASE_URL_REGION")}{self.config.get("MATCH", "BY_PUUID")}{player.getPuuid()}/ids?start={start}&count={current_game_count}&api_key={self.api_key}'
+            resp = self.api_request.make_request(url)
+            for match in resp.json():
+                match_list.append(match)
+            game_count -= current_game_count
+            start += current_game_count
         return match_list
 
     def get_match_stats(self, match_id: str, region: str) -> dict:

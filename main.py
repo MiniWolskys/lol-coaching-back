@@ -1,10 +1,11 @@
 import csv
 
-from utils.lol_utils import InputPlayer, LoL
+from utils.lol_utils import InputPlayer, InputTeam, LoL
 
 class Player:
-    def __init__(self, username: str, team_data: dict, specific_data: dict, at_x_data: dict, champion_list: list) -> None:
+    def __init__(self, username: str, position: str, team_data: dict, specific_data: dict, at_x_data: dict, champion_list: list) -> None:
         self.username = username
+        self.position = position
         self.all_data = Data(team_data, specific_data, at_x_data)
         self.champion_data = {}
         self.champion_list = champion_list
@@ -29,7 +30,7 @@ class Player:
                     self.champion_data[champion].add_data(game)
 
     def print_data(self):
-        print(self.username, ":")
+        print(f'{self.username} {self.position} :')
         self.all_data.print()
         for champion in self.champion_list:
             print(champion, ":")
@@ -37,15 +38,15 @@ class Player:
         print("")
 
     def organize(self):
-        res = [[self.username, self.all_data.count], ["wins", self.all_data.win_count], ["losses", self.all_data.lose_count]]
+        res = [[self.username, self.position, self.all_data.count], ["wins", self.position, self.all_data.win_count], ["losses", self.position, self.all_data.lose_count]]
         for data in self.all_data.data:
             res[0].append(self.all_data.data[data])
             res[1].append(self.all_data.win_data[data])
             res[2].append(self.all_data.lose_data[data])
         for champion in self.champion_list:
-            tmp_res = [champion, self.champion_data[champion].count]
-            win_tmp_res = ["wins", self.champion_data[champion].win_count]
-            lose_tmp_res = ["losses", self.champion_data[champion].lose_count]
+            tmp_res = [champion, self.position, self.champion_data[champion].count]
+            win_tmp_res = ["wins", self.position, self.champion_data[champion].win_count]
+            lose_tmp_res = ["losses", self.position, self.champion_data[champion].lose_count]
             for data in self.champion_data[champion].data:
                 tmp_res.append(self.champion_data[champion].data[data])
                 win_tmp_res.append(self.champion_data[champion].win_data[data])
@@ -208,8 +209,6 @@ def is_match_valid(match_stat: dict) -> bool:
 def aggregate_data(match_data: dict, minutes_data=None, team_data=None) -> dict:
     if minutes_data is not None:
         for minute in minutes_data:
-            if "timestamp" not in minute:
-                print(match_data)
             timestamp = minute["timestamp"]
             minute_data = minute["data"]
             for player in match_data["participants"]:
@@ -264,10 +263,6 @@ def get_set_data(match_list, player: InputPlayer):
             player_stats.append(get_player_data(match_data, player.getUsername(), team_data_list))
     return player_stats
 
-def get_match_list(puuid: str, count: int) -> list:
-    match_list = lol.get_player_last_games(puuid, count)
-    return match_list
-
 
 def get_champion_list(player_stats: list) -> list:
     champion_list = []
@@ -286,22 +281,18 @@ def get_player_stats(player: InputPlayer) -> Player:
     team_data = get_team_data_list()
     at_x_data = get_at_x_data_list()
 
-    player_data = Player(player.getUsername(), team_data, specific_data, at_x_data, champion_list)
+    player_data = Player(player.getUsername(), player.getPosition(), team_data, specific_data, at_x_data, champion_list)
     player_data.process_data(player_stats)
 
     return player_data
 
 
-def get_players_stats():
-    player_list = {
-        InputPlayer(username="MiniWolskys", position="MIDDLE", gameCount=10, region="EUW"),
-        InputPlayer(username="1Bulgarian", position="MIDDLE", gameCount=10, region="EUNE")
-    }
+def get_players_stats(player_list):
 
     player_data = {}
 
     for player in player_list:
-        player_data[player.getUsername()] = get_player_stats(player)
+        player_data[player] = get_player_stats(player)
 
     for player in player_data:
         player_data[player].print_data()
@@ -319,16 +310,27 @@ def data_to_csv(player_data: dict, writer: csv.writer) -> None:
 def init_csv(f) -> csv.writer:
     csv.register_dialect('unixpwd', delimiter=';')
     writer = csv.writer(f, 'unixpwd')
-    header = ['Player Name / champion', 'games count', '% of team damage', '% of team gold', 'gold efficiency (%)', 'cs/min', 'vision/min', 'damage/min', 'gold@15', 'death@15', 'k+a@15']
+    header = ['Player Name / champion', 'Position', 'games count', '% of team damage', '% of team gold', 'gold efficiency (%)', 'cs/min', 'vision/min', 'damage/min', 'gold@15', 'death@15', 'k+a@15']
     writer.writerow(header)
     return writer
 
 
 def main():
-    with open("results/results.csv", "w", encoding="UTF8", newline="") as f:
-        player_data = get_players_stats()
-        writer = init_csv(f)
-        data_to_csv(player_data, writer)
+    all_teams = [
+        InputTeam("MiniWolskys", {
+            InputPlayer(username="MiniWolskys", position="TOP", gameCount=200, region="EUW"),
+            InputPlayer(username="MiniWolskys", position="JUNGLE", gameCount=200, region="EUW"),
+            InputPlayer(username="MiniWolskys", position="MIDDLE", gameCount=200, region="EUW"),
+            InputPlayer(username="MiniWolskys", position="BOTTOM", gameCount=200, region="EUW"),
+            InputPlayer(username="MiniWolskys", position="UTILITY", gameCount=200, region="EUW")
+        })
+    ]
+    for team in all_teams:
+        print(f"Working on {team.teamName}")
+        with open(f"results/{team.teamName}.csv", "w", encoding="UTF8", newline="") as f:
+            player_data = get_players_stats(team.playerList)
+            writer = init_csv(f)
+            data_to_csv(player_data, writer)
 
 lol = LoL()
 main()
