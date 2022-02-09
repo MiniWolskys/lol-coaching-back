@@ -1,4 +1,4 @@
-from configuration.config import Config
+from save.configuration.config import Config
 from utils.utils import APIRequest
 
 def get_game_duration(time_t: int) -> int:

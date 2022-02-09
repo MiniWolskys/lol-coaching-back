@@ -1,5 +1,5 @@
-from configuration.config import Config
-from utils.utils import APIRequest
+from save.configuration.config import Config
+from save.utils.utils import APIRequest
 
 
 class InputPlayer:
